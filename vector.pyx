@@ -1,21 +1,25 @@
-# distutils: language = c++
-# cython: boundscheck=False, wraparound=False, initializedcheck=False
-
+# vector.pyx
+# cython: boundscheck=False, wraparound=False, cdivision=True
+import cython
 from cython.parallel import prange
-from libc.stdlib cimport malloc, free
-from cython.parallel cimport parallel
-from cython.parallel cimport threadid
+import numpy as np
+cimport numpy as cnp
 
-def vector_by_scalar(double[:] vector, double scalar):
-    """
-    Multiplica um vetor por um escalar usando OpenMP.
-    """
-    cdef int n = vector.shape[0]
-    cdef int i
-    cdef double[:] result = vector[:]
-    
-    with nogil, parallel():
-        for i in prange(n):
-            result[i] = vector[i] * scalar
-    return result
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def vector_by_scalar(cnp.ndarray[cnp.double_t, ndim=1] vector, cnp.double_t scalar):
+    cdef Py_ssize_t n = vector.shape[0]
+    cdef cnp.ndarray[cnp.double_t, ndim=1] out = np.empty(n, dtype=np.float64)
 
+    cdef double[:] v_mem = vector
+    cdef double[:] o_mem = out
+
+    cdef Py_ssize_t i
+
+    # Loop paralelo
+    # O nogil e o parallel já estão no contexto, não use nogil=True no prange
+    with cython.nogil, cython.parallel.parallel():
+        for i in prange(n, schedule='static'):
+            o_mem[i] = v_mem[i] * scalar
+
+    return out
